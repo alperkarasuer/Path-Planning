@@ -1,31 +1,25 @@
 import pygame
 import numpy as np
 import random
-
-boardSize = 30
-clockSpeed = 10
-colorBlack = (0, 0, 0)
-colorWhite = (255, 255, 255)
-colorGreen = (0, 255, 0)
-colorGrey = (128, 128, 128)
-
-borderCount = boardSize + 1
-cellWidth = 20
-cellHeight = 20
-
-cellMargin = 5
-
-windowSize = [boardSize * cellWidth + borderCount * cellMargin, boardSize * cellWidth + borderCount * cellMargin]
-
+from consts import *
 
 def drawTheGrid():
     # Draws a black coloured rectangle if the cell on given position of
     # grid array is a wall, otherwise draws a white coloured rectangle
     for row in range(boardSize):
         for column in range(boardSize):
+            # Color is white by default
             color = colorWhite
+
+            # If the cell is a wall, color is grey
             if board.grid[row][column].is_wall():
                 color = colorGrey
+
+            # Color is red if the cell is start or end cell (top left and bottom right corners)
+            if board.grid[row][column]._status == 'Start' or board.grid[row][column]._status == 'End':
+                color = colorRed
+
+            # Draw
             pygame.draw.rect(screen,
                              color,
                              [(cellMargin + cellWidth) * column + cellMargin,
@@ -35,7 +29,7 @@ def drawTheGrid():
 
 
 class Cell(object):
-    cellObjs = []  # registrar
+    cellObjs = []  # List of all cell objects created
 
     def __init__(self, cell_pos, game_info):
         '''
@@ -54,22 +48,31 @@ class Cell(object):
                           [(self.rowPos + 1) * self.margin + self.rowPos * self.height,
                            (self.rowPos + 1) * self.margin + (self.rowPos + 1) * self.height]]
 
+        if self.rowPos == 0 and self.colPos == 0:
+            self._status = 'Start'
+        if self.rowPos == boardSize - 1 and self.colPos == boardSize - 1:
+            self._status = 'End'
+
+
     @classmethod
     def randomGenerate(cls):
         for obj in cls.cellObjs:
-            if random.uniform(0, 1) > 0.5:
+            if random.uniform(0, 1) > 0.5 and (obj.rowPos != 0 or obj.colPos != 0) and (obj.rowPos != boardSize - 1 or obj.colPos != boardSize - 1):
                 obj.set_wall()
 
     @classmethod
     def clear_all(cls):
         for obj in cls.cellObjs:
-            obj.set_free()
+            if obj._status != 'Start' and obj._status != 'End':
+                obj._status = 'Free'
 
     def set_wall(self):
-        self._status = 'Wall'
+        if self._status != 'Start' and self._status != 'End':
+            self._status = 'Wall'
 
     def set_free(self):
-        self._status = 'Free'
+        if self._status != 'Start' and self._status != 'End':
+            self._status = 'Free'
 
     def is_wall(self):
         return True if self._status == 'Wall' else False
@@ -157,8 +160,6 @@ while True:
                 board.grid[whichCell[0]][whichCell[1]].set_wall()
             drawTheGrid()
             pygame.display.flip()
-
-
 
 
 # -------- Main Program Loop ----------- Runs when pressed Enter
