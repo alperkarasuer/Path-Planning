@@ -3,6 +3,87 @@ import numpy as np
 import random
 from consts import *
 
+def astar(maze, start, end):
+    """Returns a list of tuples as a path from the given start to the given end in the given maze"""
+
+    # Create start and end node
+    start_node = Node(None, start)
+    start_node.g = start_node.h = start_node.f = 0
+    end_node = Node(None, end)
+    end_node.g = end_node.h = end_node.f = 0
+
+    # Initialize both open and closed list
+    open_list = []
+    closed_list = []
+
+    # Add the start node
+    open_list.append(start_node)
+
+    # Loop until you find the end
+    while len(open_list) > 0:
+
+        # Get the current node
+        current_node = open_list[0]
+        current_index = 0
+        for index, item in enumerate(open_list):
+            if item.f < current_node.f:
+                current_node = item
+                current_index = index
+
+        # Pop current off open list, add to closed list
+        open_list.pop(current_index)
+        closed_list.append(current_node)
+
+        # Found the goal
+        if current_node == end_node:
+            path = []
+            current = current_node
+            while current is not None:
+                path.append(current.position)
+                current = current.parent
+            return path[::-1] # Return reversed path
+
+        # Generate children
+        children = []
+        for new_position in [(0, -1), (0, 1), (-1, 0), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)]: # Adjacent squares
+
+            # Get node position
+            node_position = (current_node.position[0] + new_position[0], current_node.position[1] + new_position[1])
+
+            # Make sure within range
+            if node_position[0] > (len(maze) - 1) or node_position[0] < 0 or node_position[1] > (len(maze[len(maze)-1]) -1) or node_position[1] < 0:
+                continue
+
+            # Make sure walkable terrain
+            if maze[node_position[0]][node_position[1]] != 0:
+                continue
+
+            # Create new node
+            new_node = Node(current_node, node_position)
+
+            # Append
+            children.append(new_node)
+
+        # Loop through children
+        for child in children:
+
+            # Child is on the closed list
+            for closed_child in closed_list:
+                if child == closed_child:
+                    continue
+
+            # Create the f, g, and h values
+            child.g = current_node.g + 1
+            child.h = ((child.position[0] - end_node.position[0]) ** 2) + ((child.position[1] - end_node.position[1]) ** 2)
+            child.f = child.g + child.h
+
+            # Child is already in the open list
+            for open_node in open_list:
+                if child == open_node and child.g > open_node.g:
+                    continue
+
+            # Add the child to the open list
+            open_list.append(child)
 
 def drawTheGrid():
     # Draws a black coloured rectangle if the cell on given position of
@@ -13,11 +94,11 @@ def drawTheGrid():
             color = colorWhite
 
             # If the cell is a wall, color is grey
-            if board.grid[row][column].is_wall():
+            if board.grid[row][column].status() == 'Wall':
                 color = colorGrey
 
             # Color is red if the cell is start or end cell (top left and bottom right corners)
-            if board.grid[row][column].status == 'Start' or board.grid[row][column].status == 'End':
+            if board.grid[row][column].status() == 'Start' or board.grid[row][column].status() == 'End':
                 color = colorRed
 
             # Draw
@@ -43,7 +124,7 @@ class Cell(object):
         self.margin = game_info[2]
         self.rowPos = cell_pos[0]
         self.colPos = cell_pos[1]
-        self.status = 'Free'
+        self._status = 'Free'
         self.screenPos = [[(self.colPos + 1) * self.margin + self.colPos * self.width,
                            (self.colPos + 1) * self.margin + (self.colPos + 1) * self.width],
                           [(self.rowPos + 1) * self.margin + self.rowPos * self.height,
@@ -60,39 +141,39 @@ class Cell(object):
     @classmethod
     def clear_all(cls):
         for obj in cls.cellObjs:
-            if obj.status != 'Start' and obj.status != 'End':
-                obj.status = 'Free'
+            if obj._status != 'Start' and obj._status != 'End':
+                obj._status = 'Free'
 
     # Called when setting a new start cell to ensure there is only a single start cell
     @classmethod
     def clear_start(cls):
         for obj in cls.cellObjs:
-            if obj.status == 'Start':
-                obj.status = 'Free'
+            if obj._status == 'Start':
+                obj._status = 'Free'
 
     # Called when setting a new end cell to ensure there is only a single end cell
     @classmethod
     def clear_end(cls):
         for obj in cls.cellObjs:
-            if obj.status == 'End':
-                obj.status = 'Free'
+            if obj._status == 'End':
+                obj._status = 'Free'
 
     def set_wall(self):
-        if self.status != 'Start' and self.status != 'End':
-            self.status = 'Wall'
+        if self._status != 'Start' and self._status != 'End':
+            self._status = 'Wall'
 
     def set_free(self):
-        if self.status != 'Start' and self.status != 'End':
-            self.status = 'Free'
+        if self._status != 'Start' and self._status != 'End':
+            self._status = 'Free'
 
     def set_start(self):
-        self.status = 'Start'
+        self._status = 'Start'
 
     def set_end(self):
-        self.status = 'End'
+        self._status = 'End'
 
-    def is_wall(self):
-        return True if self.status == 'Wall' else False
+    def status(self):
+        return self._status
 
 
 class Board:
@@ -104,8 +185,6 @@ class Board:
         self.boardInfo = (cellWidth, cellHeight, cellMargin)
         self.grid = [[Cell([row_cells, column_cells], self.boardInfo) for column_cells in range(self.gridSize)] for
                      row_cells in range(self.gridSize)]
-        self._rows = grid_size
-        self._columns = grid_size
 
     def clickWhere(self, click_pos):
         # Find the cell that contains the clicked position
@@ -122,16 +201,33 @@ class Board:
         return None
 
     def generate_matrix(self):
-        # Generate a matrix from the board grid
+        # Generate a status matrix from the board grid (1 for wall, 0 for free)
         matrix = np.zeros((self.gridSize, self.gridSize), dtype = int)
         for i in range(self.gridSize):
             for j in range(self.gridSize):
-                if board.grid[i][j].is_wall():
+                if board.grid[i][j].status() == 'Wall':
                     matrix[i][j] = 1
+                elif board.grid[i][j].status() == 'Start':
+                    matrix[i][j] = 2
+                elif board.grid[i][j].status() == 'End':
+                    matrix[i][j] = 3
                 else:
                     matrix[i][j] = 0
         return matrix
 
+class Node():
+    """A node class for A* Pathfinding"""
+
+    def __init__(self, parent=None, position=None):
+        self.parent = parent
+        self.position = position
+
+        self.g = 0
+        self.h = 0
+        self.f = 0
+
+    def __eq__(self, other):
+        return self.position == other.position
 
 
 # Start a board of size N
@@ -203,12 +299,30 @@ while True:
         whichCell = board.clickWhere(clickPosition)
 
         if isinstance(whichCell, tuple):
-            if board.grid[whichCell[0]][whichCell[1]].is_wall():
+            if board.grid[whichCell[0]][whichCell[1]].status() == 'Wall':
                 board.grid[whichCell[0]][whichCell[1]].set_free()
             else:
                 board.grid[whichCell[0]][whichCell[1]].set_wall()
             drawTheGrid()
             pygame.display.flip()
+
+
+# Generate a matrix from current state of board
+maze = board.generate_matrix()
+
+# Determine start and end cells
+start = (np.where(maze == 2)[0][0], np.where(maze == 2)[1][0])
+end = (np.where(maze == 3)[0][0], np.where(maze == 3)[1][0])
+
+# Set the values of the start and end cells to 0 so that they are not seen as walls
+maze[start[0]][start[1]] = 0
+maze[end[0]][end[1]] = 0
+
+
+path = astar(maze, start, end)
+print(path)
+
+
 
 # -------- Main Program Loop ----------- Runs when pressed Enter
 while running:
