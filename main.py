@@ -3,6 +3,7 @@ import numpy as np
 import random
 from consts import *
 
+
 def drawTheGrid():
     # Draws a black coloured rectangle if the cell on given position of
     # grid array is a wall, otherwise draws a white coloured rectangle
@@ -16,7 +17,7 @@ def drawTheGrid():
                 color = colorGrey
 
             # Color is red if the cell is start or end cell (top left and bottom right corners)
-            if board.grid[row][column]._status == 'Start' or board.grid[row][column]._status == 'End':
+            if board.grid[row][column].status == 'Start' or board.grid[row][column].status == 'End':
                 color = colorRed
 
             # Draw
@@ -32,50 +33,66 @@ class Cell(object):
     cellObjs = []  # List of all cell objects created
 
     def __init__(self, cell_pos, game_info):
-        '''
+        """
         Cell has the ability to be wall or free cell, status can be
         checked with functions. Initial status is free.
-        '''
+        """
         Cell.cellObjs.append(self)
         self.width = game_info[0]
         self.height = game_info[1]
         self.margin = game_info[2]
         self.rowPos = cell_pos[0]
         self.colPos = cell_pos[1]
-        self._status = 'Free'
+        self.status = 'Free'
         self.screenPos = [[(self.colPos + 1) * self.margin + self.colPos * self.width,
                            (self.colPos + 1) * self.margin + (self.colPos + 1) * self.width],
                           [(self.rowPos + 1) * self.margin + self.rowPos * self.height,
                            (self.rowPos + 1) * self.margin + (self.rowPos + 1) * self.height]]
 
-        if self.rowPos == 0 and self.colPos == 0:
-            self._status = 'Start'
-        if self.rowPos == boardSize - 1 and self.colPos == boardSize - 1:
-            self._status = 'End'
-
-
+    # Randomly generate walls
     @classmethod
     def randomGenerate(cls):
         for obj in cls.cellObjs:
-            if random.uniform(0, 1) > 0.5 and (obj.rowPos != 0 or obj.colPos != 0) and (obj.rowPos != boardSize - 1 or obj.colPos != boardSize - 1):
+            if random.uniform(0, 1) > 0.5:
                 obj.set_wall()
 
+    # Reset all cells to free
     @classmethod
     def clear_all(cls):
         for obj in cls.cellObjs:
-            if obj._status != 'Start' and obj._status != 'End':
-                obj._status = 'Free'
+            if obj.status != 'Start' and obj.status != 'End':
+                obj.status = 'Free'
+
+    # Called when setting a new start cell to ensure there is only a single start cell
+    @classmethod
+    def clear_start(cls):
+        for obj in cls.cellObjs:
+            if obj.status == 'Start':
+                obj.status = 'Free'
+
+    # Called when setting a new end cell to ensure there is only a single end cell
+    @classmethod
+    def clear_end(cls):
+        for obj in cls.cellObjs:
+            if obj.status == 'End':
+                obj.status = 'Free'
 
     def set_wall(self):
-        if self._status != 'Start' and self._status != 'End':
-            self._status = 'Wall'
+        if self.status != 'Start' and self.status != 'End':
+            self.status = 'Wall'
 
     def set_free(self):
-        if self._status != 'Start' and self._status != 'End':
-            self._status = 'Free'
+        if self.status != 'Start' and self.status != 'End':
+            self.status = 'Free'
+
+    def set_start(self):
+        self.status = 'Start'
+
+    def set_end(self):
+        self.status = 'End'
 
     def is_wall(self):
-        return True if self._status == 'Wall' else False
+        return True if self.status == 'Wall' else False
 
 
 class Board:
@@ -90,9 +107,6 @@ class Board:
         self._rows = grid_size
         self._columns = grid_size
 
-    def update_board(self):
-        return None
-
     def clickWhere(self, click_pos):
         # Find the cell that contains the clicked position
         for i in range(self.gridSize):
@@ -106,6 +120,18 @@ class Board:
                     clicked_cell = (i, j)
                     return clicked_cell
         return None
+
+    def generate_matrix(self):
+        # Generate a matrix from the board grid
+        matrix = np.zeros((self.gridSize, self.gridSize), dtype = int)
+        for i in range(self.gridSize):
+            for j in range(self.gridSize):
+                if board.grid[i][j].is_wall():
+                    matrix[i][j] = 1
+                else:
+                    matrix[i][j] = 0
+        return matrix
+
 
 
 # Start a board of size N
@@ -137,22 +163,45 @@ while True:
         running = False
         break
 
-    # Press R to randomly generate cell status
     if initEvent.type == pygame.KEYDOWN:
         if initEvent.key == pygame.K_RETURN:
             break
+
+        # Press R to randomly generate cell status
         if initEvent.key == pygame.K_r:
             Cell.clear_all()
             Cell.randomGenerate()
             drawTheGrid()
             pygame.display.flip()
 
-    # Click on cells to change their status
+        # When pressed S, the cell that cursor is on will be start cell
+        if initEvent.key == pygame.K_s:
+            clickPosition = pygame.mouse.get_pos()
+            whichCell = board.clickWhere(clickPosition)
+
+            # Making sure the cursor is on a cell by checking its type since borders return None
+            if isinstance(whichCell, tuple):
+                Cell.clear_start()
+                board.grid[whichCell[0]][whichCell[1]].set_start()
+                drawTheGrid()
+                pygame.display.flip()
+
+        # When pressed E, the cell that cursor is on will be end cell
+        if initEvent.key == pygame.K_e:
+            clickPosition = pygame.mouse.get_pos()
+            whichCell = board.clickWhere(clickPosition)
+
+            if isinstance(whichCell, tuple):
+                Cell.clear_end()
+                board.grid[whichCell[0]][whichCell[1]].set_end()
+                drawTheGrid()
+                pygame.display.flip()
+
+    # Click on cells to change their status from free to wall or vice versa
     if initEvent.type == pygame.MOUSEBUTTONDOWN:
         clickPosition = pygame.mouse.get_pos()
         whichCell = board.clickWhere(clickPosition)
 
-        # When clicked on borders, it returns none so make sure that it is a tuple
         if isinstance(whichCell, tuple):
             if board.grid[whichCell[0]][whichCell[1]].is_wall():
                 board.grid[whichCell[0]][whichCell[1]].set_free()
@@ -161,14 +210,11 @@ while True:
             drawTheGrid()
             pygame.display.flip()
 
-
 # -------- Main Program Loop ----------- Runs when pressed Enter
 while running:
 
     # Draw the grid
     drawTheGrid()
-
-    board.update_board()
 
     # Limit frames per second
     clock.tick(clockSpeed)
