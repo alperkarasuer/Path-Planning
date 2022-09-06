@@ -1,7 +1,7 @@
 import pygame
 from consts import *
 from board import Board, Cell, np
-from astar import astar, Node
+from astar import astar
 
 
 def drawTheGrid():
@@ -20,6 +20,9 @@ def drawTheGrid():
             if board.grid[row][column].status() == 'Start' or board.grid[row][column].status() == 'End':
                 color = colorRed
 
+            if board.grid[row][column].status() == 'Path':
+                color = colorGreen
+
             # Draw
             pygame.draw.rect(screen,
                              color,
@@ -27,8 +30,6 @@ def drawTheGrid():
                               (cellMargin + cellHeight) * row + cellMargin,
                               cellWidth,
                               cellHeight])
-
-
 
 
 # Start a board of size N
@@ -112,36 +113,50 @@ while True:
 # Generate a matrix from current state of board
 maze = board.generate_matrix()
 
-# Determine start and end cells
-start = (np.where(maze == 2)[0][0], np.where(maze == 2)[1][0])
-end = (np.where(maze == 3)[0][0], np.where(maze == 3)[1][0])
+# Determine start and end cells, if they are not specified use upper left and lower right corners
+try:
+    start = (np.where(maze == 2)[0][0], np.where(maze == 2)[1][0])
+except IndexError:
+    start = (0, 0)
 
-# Set the values of the start and end cells to 0 so that they are not seen as walls
+try:
+    end = (np.where(maze == 3)[0][0], np.where(maze == 3)[1][0])
+except IndexError:
+    end = (boardSize - 1, boardSize - 1)
+
+# Paint the start and end cells to red
+board.grid[start[0]][start[1]].set_start()
+board.grid[end[0]][end[1]].set_end()
+
+drawTheGrid()
+pygame.display.flip()
+
+# Set the values of the start and end cells to 0 on the matrix so that they are not seen as walls
 maze[start[0]][start[1]] = 0
 maze[end[0]][end[1]] = 0
 
-
 path = astar(maze, start, end)
-print(path)
 
 
-
+runCount = 1
 # -------- Main Program Loop ----------- Runs when pressed Enter
 while running:
 
-    # Draw the grid
-    drawTheGrid()
+    # Paint the cells to green if they are included in the shortest path
+    for i in path:
+        if board.grid[i[0]][i[1]].status() != 'Start' and board.grid[i[0]][i[1]].status() != 'End':
+            board.grid[i[0]][i[1]].set_path()
 
-    # Limit frames per second
-    clock.tick(clockSpeed)
+            drawTheGrid()
+            clock.tick(clockSpeed)
+            pygame.display.flip()
 
-    # Go ahead and update the screen with what we've drawn.
-    pygame.display.flip()
 
     # Main loop
     for event in pygame.event.get():  # User did something
         if event.type == pygame.QUIT:  # If user clicked close
             running = False  # Flag that we are done so we exit this loop
+
 
 # Quit the program
 pygame.quit()

@@ -1,5 +1,6 @@
 import random
 
+
 class Cell(object):
     cellObjs = []  # List of all cell objects created
 
@@ -61,6 +62,9 @@ class Cell(object):
 
     def set_end(self):
         self._status = 'End'
+
+    def set_path(self):
+        self._status = 'Path'
 
     def status(self):
         return self._status
