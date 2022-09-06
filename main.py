@@ -58,15 +58,51 @@ pygame.display.flip()
 while True:
     initEvent = pygame.event.wait()
 
+    # If the user clicked on the close button
     if initEvent.type == pygame.QUIT:
         running = False
         break
 
+    # If the user presses "Enter", "s", "e" or "r" keys
     if initEvent.type == pygame.KEYDOWN:
+        # When "Enter" key is pressed, proceed with the solution
         if initEvent.key == pygame.K_RETURN:
-            break
+            # Generate a matrix from current state of board
+            maze = board.generate_matrix()
 
-        # Press R to randomly generate cell status
+            # Determine start and end cells, if they are not specified use upper left and lower right corners
+            try:
+                start = (np.where(maze == 2)[0][0], np.where(maze == 2)[1][0]) # Checks whether a start cell exists
+            except IndexError:
+                start = (0, 0)
+
+            try:
+                end = (np.where(maze == 3)[0][0], np.where(maze == 3)[1][0]) # Checks whether an end cell exists
+            except IndexError:
+                end = (boardSize - 1, boardSize - 1)
+
+            # Paint the start and end cells to red
+            board.grid[start[0]][start[1]].set_start()
+            board.grid[end[0]][end[1]].set_end()
+
+            drawTheGrid()
+            pygame.display.flip()
+
+            # Set the values of the start and end cells to 0 on the matrix so that they are not seen as walls
+            maze[start[0]][start[1]] = 0
+            maze[end[0]][end[1]] = 0
+
+            path = astar(maze, start, end)
+
+            # Function returns tuple if path is found, otherwise returns None so check for that
+            if type(path) != type(None):
+                break
+
+            if type(path) == type(None):
+                print("No path found")
+                continue
+
+        # Press R to randomly generate cell status, no path is guaranteed to exist
         if initEvent.key == pygame.K_r:
             Cell.clear_all()
             Cell.randomGenerate()
@@ -108,34 +144,6 @@ while True:
                 board.grid[whichCell[0]][whichCell[1]].set_wall()
             drawTheGrid()
             pygame.display.flip()
-
-
-# Generate a matrix from current state of board
-maze = board.generate_matrix()
-
-# Determine start and end cells, if they are not specified use upper left and lower right corners
-try:
-    start = (np.where(maze == 2)[0][0], np.where(maze == 2)[1][0])
-except IndexError:
-    start = (0, 0)
-
-try:
-    end = (np.where(maze == 3)[0][0], np.where(maze == 3)[1][0])
-except IndexError:
-    end = (boardSize - 1, boardSize - 1)
-
-# Paint the start and end cells to red
-board.grid[start[0]][start[1]].set_start()
-board.grid[end[0]][end[1]].set_end()
-
-drawTheGrid()
-pygame.display.flip()
-
-# Set the values of the start and end cells to 0 on the matrix so that they are not seen as walls
-maze[start[0]][start[1]] = 0
-maze[end[0]][end[1]] = 0
-
-path = astar(maze, start, end)
 
 
 runCount = 1

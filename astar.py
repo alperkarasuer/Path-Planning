@@ -1,4 +1,4 @@
-class Node:
+class Node():
     """A node class for A* Pathfinding"""
 
     def __init__(self, parent=None, position=None):
@@ -12,6 +12,9 @@ class Node:
     def __eq__(self, other):
         return self.position == other.position
 
+    def __hash__(self):               #<-- added a hash method
+        return hash(self.position)
+
 
 def astar(maze, start, end):
     """Returns a list of tuples as a path from the given start to the given end in the given maze"""
@@ -24,7 +27,7 @@ def astar(maze, start, end):
 
     # Initialize both open and closed list
     open_list = []
-    closed_list = []
+    closed_list = set()                # <-- closed_list must be a set
 
     # Add the start node
     open_list.append(start_node)
@@ -42,7 +45,7 @@ def astar(maze, start, end):
 
         # Pop current off open list, add to closed list
         open_list.pop(current_index)
-        closed_list.append(current_node)
+        closed_list.add(current_node)     # <-- change append to add
 
         # Found the goal
         if current_node == end_node:
@@ -51,17 +54,17 @@ def astar(maze, start, end):
             while current is not None:
                 path.append(current.position)
                 current = current.parent
-            return path[::-1]  # Return reversed path
+            return path[::-1] # Return reversed path
 
         # Generate children
         children = []
-        for new_position in [(0, -1), (0, 1), (-1, 0), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)]:  # Adjacent squares
+        for new_position in [(0, -1), (0, 1), (-1, 0), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)]: # Adjacent squares
 
             # Get node position
             node_position = (current_node.position[0] + new_position[0], current_node.position[1] + new_position[1])
 
             # Make sure within range
-            if node_position[0] > (len(maze) - 1) or node_position[0] < 0 or node_position[1] > (len(maze[len(maze)-1]) - 1) or node_position[1] < 0:
+            if node_position[0] > (len(maze) - 1) or node_position[0] < 0 or node_position[1] > (len(maze[len(maze)-1]) -1) or node_position[1] < 0:
                 continue
 
             # Make sure walkable terrain
@@ -78,9 +81,8 @@ def astar(maze, start, end):
         for child in children:
 
             # Child is on the closed list
-            for closed_child in closed_list:
-                if child == closed_child:
-                    continue
+            if child in closed_list:              # <-- remove inner loop so continue takes you to the end of the outer loop
+                continue
 
             # Create the f, g, and h values
             child.g = current_node.g + 1
